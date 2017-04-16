@@ -21,3 +21,6 @@
 
 # Ignore secrets
 /config/secrets.yml
+
+# Ignore local env secrets
+/config/local_env.yml
