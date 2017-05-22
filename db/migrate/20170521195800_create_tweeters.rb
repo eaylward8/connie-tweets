@@ -1,7 +1,7 @@
 class CreateTweeters < ActiveRecord::Migration[5.0]
   def change
     create_table :tweeters do |t|
-      t.integer :tw_user_id
+      t.string :tw_user_id
       t.string :name
       t.string :screen_name
       t.string :location

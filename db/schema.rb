@@ -16,7 +16,7 @@ ActiveRecord::Schema.define(version: 20170521195807) do
   enable_extension "plpgsql"
 
   create_table "tweeters", force: :cascade do |t|
-    t.integer  "tw_user_id"
+    t.string   "tw_user_id"
     t.string   "name"
     t.string   "screen_name"
     t.string   "location"
@@ -29,13 +29,15 @@ ActiveRecord::Schema.define(version: 20170521195807) do
   end
 
   create_table "tweets", force: :cascade do |t|
-    t.integer  "tw_tweet_id"
+    t.string   "tw_tweet_id"
     t.string   "text"
-    t.datetime "tweeted_at"
+    t.datetime "tweet_time"
     t.boolean  "retweeted"
     t.integer  "retweet_count"
     t.boolean  "favorited"
     t.integer  "favorite_count"
+    t.boolean  "retweet_tf"
+    t.string   "rt_tweet_id"
     t.integer  "tweeter_id"
     t.datetime "created_at",     null: false
     t.datetime "updated_at",     null: false
