@@ -9,41 +9,54 @@ namespace :twitter do
   end
 
   desc 'Save LCC twitter data'
-  task :save_data, [:search_term] => [:environment] do |t, args|
+  task :save_data => [:environment] do |t, args|
     client = TwitterClient.new
+    search_terms = ['low cut connie', 'lowcutconnie', '@lowcutconnie']
 
-    search_term = args[:search_term].present? ? args[:search_term] : 'low cut connie'
-    since_id = Tweet.maximum(:tw_tweet_id)
-    puts "Search term: #{search_term}, Since_id: #{since_id}"
+    summary = search_terms.each_with_object({}) do |term, obj|
+      obj[term] = {
+        tweets_found: 0,
+        since_tweet: nil,
+        tweets_created: 0,
+        tweeters_created: 0,
+        tweeters_updated: 0,
+        tweeters_update_skipped: 0
+      }
+    end
 
-    search_results = client.search(search_term.to_s, result_type: 'recent', since_id: since_id)
-    puts "Search results count: #{search_results.count}"
+    search_terms.each do |term|
+      since_id = Tweet.maximum(:tw_tweet_id)
+      search_results = client.search(term.to_s, result_type: 'recent', since_id: since_id)
+      summary[term][:tweets_found] = search_results.count
+      summary[term][:since_tweet] = since_id
 
-    search_results.each do |tweet|
-      user = tweet.user
+      search_results.each do |tweet|
+        user = tweet.user
 
-      if Tweet.find_by(tw_tweet_id: tweet.id.to_s)
-        puts "Already have tweet #{tweet.id.to_s}"
-        next
-      end
-
-      if tweeter = Tweeter.find_by(tw_user_id: user.id.to_s)
-        if tweeter.updated_at < 1.day.ago
-          update_tweeter(tweeter, user)
-          puts "Updated Tweeter #{tweeter.id}"
-        else
-          puts "Skipping update of Tweeter #{tweeter.id}"
+        if Tweet.find_by(tw_tweet_id: tweet.id.to_s)
+          puts "Already have tweet #{tweet.id.to_s}"
+          next
         end
 
-        create_tweet(tweet, tweeter)
-        puts "Created Tweet #{tweet.id}"
-      else
-        tweeter = create_tweeter(user)
-        puts "Created Tweeter #{tweeter.id}"
-        create_tweet(tweet, tweeter)
-        puts "Created Tweet #{tweet.id}"
+        if tweeter = Tweeter.find_by(tw_user_id: user.id.to_s)
+          if tweeter.updated_at < 1.day.ago
+            update_tweeter(tweeter, user)
+            summary[term][:tweeters_updated] += 1
+          else
+            summary[term][:tweeters_update_skipped] += 1
+          end
+
+          create_tweet(tweet, tweeter)
+          summary[term][:tweets_created] += 1
+        else
+          tweeter = create_tweeter(user)
+          summary[term][:tweeters_created] += 1
+          create_tweet(tweet, tweeter)
+          summary[term][:tweets_created] += 1
+        end
       end
     end
+    handle_summary(summary)
   end
 
   def create_tweeter(user)
@@ -83,5 +96,13 @@ namespace :twitter do
       retweet_tf: tweet.retweet?,
       rt_tweet_id: tweet.retweeted_tweet&.id.to_s
     )
+  end
+
+  def handle_summary(summary)
+    if Rails.env.production?
+      SaveTweetsMailer.daily_summary_email(summary).deliver_now
+    else
+      puts summary.to_yaml
+    end
   end
 end
