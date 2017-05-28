@@ -10,12 +10,7 @@ namespace :twitter do
 
   desc 'Save LCC twitter data'
   task :save_data, [:search_term] => [:environment] do |t, args|
-    client = Twitter::REST::Client.new do |config|
-      config.consumer_key        = ENV['TW_CONSUMER_KEY']
-      config.consumer_secret     = ENV['TW_CONSUMER_SECRET']
-      config.access_token        = ENV['TW_ACCESS_TOKEN']
-      config.access_token_secret = ENV['TW_ACCESS_TOKEN_SECRET']
-    end
+    client = TwitterClient.new
 
     search_term = args[:search_term].present? ? args[:search_term] : 'low cut connie'
     since_id = Tweet.maximum(:tw_tweet_id)
@@ -24,56 +19,69 @@ namespace :twitter do
     search_results = client.search(search_term.to_s, result_type: 'recent', since_id: since_id)
     puts "Search results count: #{search_results.count}"
 
-    search_results.each do |t|
-      u = t.user
+    search_results.each do |tweet|
+      user = tweet.user
 
-      if Tweet.find_by(tw_tweet_id: t.id.to_s)
-        puts "Already have tweet #{t.id.to_s}"
+      if Tweet.find_by(tw_tweet_id: tweet.id.to_s)
+        puts "Already have tweet #{tweet.id.to_s}"
         next
       end
 
-      if tweeter = Tweeter.find_by(tw_user_id: u.id.to_s)
-        unless tweeter.updated_at > 1.day.ago
-          tweeter.update_attributes(
-            name: u.name,
-            screen_name: u.screen_name,
-            location: u.location,
-            description: u.description,
-            url: u.url.to_s,
-            followers_count: u.followers_count,
-            friends_count: u.friends_count
-          )
+      if tweeter = Tweeter.find_by(tw_user_id: user.id.to_s)
+        if tweeter.updated_at < 1.day.ago
+          update_tweeter(tweeter, user)
           puts "Updated Tweeter #{tweeter.id}"
+        else
+          puts "Skipping update of Tweeter #{tweeter.id}"
         end
 
-        puts "Skipping update of Tweeter #{tweeter.id}"
+        create_tweet(tweet, tweeter)
+        puts "Created Tweet #{tweet.id}"
       else
-        tweeter = Tweeter.create(
-          tw_user_id: u.id.to_s,
-          name: u.name,
-          screen_name: u.screen_name,
-          location: u.location,
-          description: u.description,
-          url: u.url.to_s,
-          followers_count: u.followers_count,
-          friends_count: u.friends_count
-        )
+        tweeter = create_tweeter(user)
         puts "Created Tweeter #{tweeter.id}"
+        create_tweet(tweet, tweeter)
+        puts "Created Tweet #{tweet.id}"
       end
-
-      tweet = Tweet.create(
-        tw_tweet_id: t.id.to_s,
-        tweeter_id: tweeter.id,
-        text: t.full_text,
-        tweet_time: t.created_at,
-        retweeted: t.retweeted?,
-        retweet_count: t.retweet_count,
-        favorited: t.favorited?,
-        favorite_count: t.favorite_count,
-        retweet_tf: t.retweet?,
-        rt_tweet_id: t.retweeted_tweet&.id.to_s
-      )
-      puts "Created Tweet #{tweet.id}"
     end
+  end
+
+  def create_tweeter(user)
+    Tweeter.create(
+      tw_user_id: user.id.to_s,
+      name: user.name,
+      screen_name: user.screen_name,
+      location: user.location,
+      description: user.description,
+      url: user.url.to_s,
+      followers_count: user.followers_count,
+      friends_count: user.friends_count
+    )
+  end
+
+  def update_tweeter(tweeter, user)
+    tweeter.update_attributes(
+      name: user.name,
+      screen_name: user.screen_name,
+      location: user.location,
+      description: user.description,
+      url: user.url.to_s,
+      followers_count: user.followers_count,
+      friends_count: user.friends_count
+    )
+  end
+
+  def create_tweet(tweet, tweeter)
+    tweeter.tweets.create(
+      tw_tweet_id: tweet.id.to_s,
+      text: tweet.full_text,
+      tweet_time: tweet.created_at,
+      retweeted: tweet.retweeted?,
+      retweet_count: tweet.retweet_count,
+      favorited: tweet.favorited?,
+      favorite_count: tweet.favorite_count,
+      retweet_tf: tweet.retweet?,
+      rt_tweet_id: tweet.retweeted_tweet&.id.to_s
+    )
   end
 end
