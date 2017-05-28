@@ -99,7 +99,7 @@ namespace :twitter do
   end
 
   def handle_summary(summary)
-    SaveTweetsMailer.daily_summary_email(summary).deliver_now if Rails.env.production?
+    SaveTweetsMailer.daily_summary(summary).deliver_now if Rails.env.production?
     puts summary.to_yaml
   end
 end
