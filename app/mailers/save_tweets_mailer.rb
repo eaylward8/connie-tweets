@@ -3,6 +3,7 @@ class SaveTweetsMailer < ApplicationMailer
 
   def daily_summary(summary)
     @summary = summary
+    # TODO convert time to US Eastern
     @time = DateTime.now.strftime('%b %e, %Y %I:%M%P')
     mail to: ENV['ADMIN_EMAIL'], subject: "LCC Tweets #{@time}"
   end
