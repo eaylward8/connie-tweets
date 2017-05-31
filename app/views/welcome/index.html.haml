@@ -1,5 +1,4 @@
-%h1 #{@lcc.name}
-%h2 Followers: #{@lcc.followers_count}
+%h1 Tweets
 %ul
-  - @client.search('low cut connie').each do |tweet|
-    %li= "#{tweet.user.screen_name}: #{tweet.text} - #{tweet.created_at}"
+  - @tweets.each do |tweet|
+    %li= "#{tweet.id} - #{tweet.tw_tweet_id} - #{tweet.tweeter.screen_name}: #{tweet.text}"
